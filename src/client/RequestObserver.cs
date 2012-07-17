@@ -39,7 +39,7 @@ namespace Embedly
 				.Buffer(20)
 				.Select(reqs =>
 				    new EmbedlyRequest(
-				        new Uri(@"http://api.embed.ly/1/oembed?format=json&key=" + client.Key + @"&urls=" + string.Join(",", reqs.Select(req => Uri.EscapeDataString(req.Url.AbsoluteUri))) + options.GetQueryString()),
+				        new Uri(@"https://api.embed.ly/1/oembed?format=json&key=" + client.Key + @"&urls=" + string.Join(",", reqs.Select(req => Uri.EscapeDataString(req.Url.AbsoluteUri))) + options.GetQueryString()),
 				        reqs.ToArray()
 				    )
 				)

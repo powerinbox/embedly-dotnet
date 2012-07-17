@@ -22,7 +22,7 @@ namespace Embedly
 		// singleton pattern from: http://csharpindepth.com/Articles/General/Singleton.aspx
 		private static readonly Lazy<Service> Lazy = new Lazy<Service>(() => new Service());
 
-		private const string ServiceApi = "http://api.embed.ly/1/services";
+		private const string ServiceApi = "https://api.embed.ly/1/services";
 
 		internal static Service Instance { get { return Lazy.Value; } }
 
