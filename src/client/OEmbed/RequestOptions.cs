@@ -70,6 +70,14 @@
 		public bool Secure { get; set; }
 
 		/// <summary>
+		/// Serves all embeds within an iframe to avoid XSS issues
+		/// </summary>
+		/// <value>
+		///   <c>true</c> to use an iframe; otherwise, <c>false</c>.
+		/// </value>
+		public bool Frame { get; set; }
+
+		/// <summary>
 		/// Gets or sets a value indicating whether to force embedly to reevaluate the link
 		/// </summary>
 		/// <value>
@@ -108,6 +116,9 @@
 
 			if (Secure)
 				querystring += "&secure=true";
+
+			if (Frame)
+				querystring += "&frame=true";
 
 			if (Force)
 				querystring += "&force=true";
