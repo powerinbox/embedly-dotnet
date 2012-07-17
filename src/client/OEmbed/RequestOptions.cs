@@ -62,7 +62,15 @@
 		public int Chars { get; set; }
 
 		/// <summary>
-		/// Gets or sets a value indicating whether to force embedly to reevaluate the link 
+		/// Use HTTPS endpoint
+		/// </summary>
+		/// <value>
+		///   <c>true</c> to use HTTPS endpoint; otherwise, <c>false</c>.
+		/// </value>
+		public bool Secure { get; set; }
+
+		/// <summary>
+		/// Gets or sets a value indicating whether to force embedly to reevaluate the link
 		/// </summary>
 		/// <value>
 		///   <c>true</c> if force reevaluation; otherwise, <c>false</c>.
@@ -97,6 +105,9 @@
 
 			if (Chars > 0)
 				querystring += "&chars=" + Chars;
+
+			if (Secure)
+				querystring += "&secure=true";
 
 			if (Force)
 				querystring += "&force=true";
