@@ -3,6 +3,8 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reactive.Concurrency;
+using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Runtime.Serialization.Json;
 using System.Threading;
@@ -98,38 +100,64 @@ namespace Embedly.OEmbed
 			return GetOEmbeds(client, urls, providerFilter, new RequestOptions());
 		}
 
-		/// <summary>
-		/// Gets multiple oEmbeds
-		/// </summary>
-		/// <param name="client">The client.</param>
-		/// <param name="urls">The urls.</param>
-		/// <param name="providerFilter">The provider filter.</param>
-		/// <param name="options">The options.</param>
-		/// <returns></returns>
-		public static IEnumerable<Result> GetOEmbeds(this Client client, IEnumerable<Uri> urls, Func<Provider, bool> providerFilter, RequestOptions options)
-		{
-			if (urls == null)
-				throw new ArgumentNullException("urls");
+        /// <summary>
+        /// Gets multiple oEmbeds
+        /// </summary>
+        /// <param name="client">The client.</param>
+        /// <param name="urls">The urls.</param>
+        /// <param name="providerFilter">The provider filter.</param>
+        /// <param name="options">The options.</param>
+        /// <returns></returns>
+        public static IEnumerable<Result> GetOEmbeds(this Client client, IEnumerable<Uri> urls, Func<Provider, bool> providerFilter, RequestOptions options)
+        {
+            if (urls == null)
+                throw new ArgumentNullException("urls");
 
-			if (options == null)
-				throw new ArgumentNullException("options");
+            if (options == null)
+                throw new ArgumentNullException("options");
 
-			var results = new BlockingCollection<Result>();
+            var results = new BlockingCollection<Result>();
+            var redirector = new RequestObserver(client, options);
 
-			var requests = urls
-				.MakeUrlRequests(client)
-				.WhereProvider(providerFilter);
+            redirector.Output.Subscribe(results.Add, results.CompleteAdding);
 
-			var redirector = new RequestObserver(client, options);
-			var observable = requests.ToObservable();
+            var requests = urls
+                .ToObservable(NewThreadScheduler.Default)
+                .Select(u => u.MakeUrlRequests(client))
+                .WhereProvider(providerFilter);
 
-			redirector.Output.Subscribe(results.Add, ex => { }, results.CompleteAdding);
+            requests.Subscribe(redirector);
 
-			using (var subscription = observable.Subscribe(redirector))
-			{
-				return results.GetConsumingEnumerable();
-			}
-		}
+            return results.GetConsumingEnumerable();
+        }
+
+        /// <summary>
+        /// Gets multiple oEmbeds
+        /// </summary>
+        /// <param name="client">The client.</param>
+        /// <param name="urls">The urls.</param>
+        /// <param name="providerFilter">The provider filter.</param>
+        /// <param name="options">The options.</param>
+        /// <returns></returns>
+        public static IObservable<Result> GetOEmbeds(this Client client, IObservable<Uri> urls, Func<Provider, bool> providerFilter, RequestOptions options)
+        {
+            if (urls == null)
+                throw new ArgumentNullException("urls");
+
+            if (options == null)
+                throw new ArgumentNullException("options");
+
+            var requests = urls
+                .ObserveOn(NewThreadScheduler.Default)
+                .Select(u => u.MakeUrlRequests(client))
+                .WhereProvider(providerFilter);
+
+            var redirector = new RequestObserver(client, options);
+
+            requests.Subscribe(redirector);
+
+            return redirector.Output;
+        }
 
 		/// <summary>
 		/// Returns successful results (not exeption during request and no error from embedly).
