@@ -23,13 +23,13 @@ namespace Embedly.Sample
 			var factory = DbProviderFactories.GetFactory(database.ProviderName);
 			var cache = new AdoResponseCache(factory, database.ConnectionString);
 			*/
-			
+
 			// using the MongoDB Cache
 			// var cache = new MongoResponseCache(database.ConnectionString);
-			
+
 			try
 			{
-				var client = new Client(key, cache);
+				var client = new Client(key, new TimeSpan(0, 0, 30), new TimeSpan(0, 0, 0), cache);
 
 				//Providers(client);
 				//ProviderInformation(client);
@@ -144,7 +144,7 @@ namespace Embedly.Sample
 			var url = TestVideoUrl();
 
 			var result = client.GetOEmbed(url, new RequestOptions { MaxWidth = 320 });
-			
+
 			// basic response information
 			var response = result.Response;
 			Console.WriteLine("Type           : {0}", response.Type);
@@ -258,7 +258,7 @@ namespace Embedly.Sample
 				}
 				else
 				{
-					Console.WriteLine("Exception requesting {0} : {1}", result.Request.Url, result.Exception);				
+					Console.WriteLine("Exception requesting {0} : {1}", result.Request.Url, result.Exception);
 				}
 			}
 		}
