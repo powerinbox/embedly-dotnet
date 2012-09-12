@@ -33,33 +33,30 @@ namespace Embedly.Http
 			httpWebRequest.ContentType = contentType;
 			httpWebRequest.Method = httpMethod;
 			httpWebRequest.Headers[HttpRequestHeader.AcceptEncoding] = "compress, gzip"; // use http compression
-		    httpWebRequest.AutomaticDecompression = DecompressionMethods.Deflate | DecompressionMethods.GZip;
-            httpWebRequest.KeepAlive = true;
-            httpWebRequest.Pipelined = true;
-            httpWebRequest.UnsafeAuthenticatedConnectionSharing = true;
-            httpWebRequest.UseDefaultCredentials = false;
-            httpWebRequest.Proxy = WebRequest.DefaultWebProxy;
+			httpWebRequest.AutomaticDecompression = DecompressionMethods.Deflate | DecompressionMethods.GZip;
+			httpWebRequest.KeepAlive = true;
+			httpWebRequest.Pipelined = true;
+			httpWebRequest.UnsafeAuthenticatedConnectionSharing = true;
+			httpWebRequest.UseDefaultCredentials = false;
+			httpWebRequest.Proxy = WebRequest.DefaultWebProxy;
 
 			return httpWebRequest;
 		}
 
-		/// <summary>
-		/// Begins the get response callback.
-		/// </summary>
-		/// <param name="asyncResult">The async result.</param>
-		static void BeginGetResponseCallback(IAsyncResult asyncResult)
+#if DISABLE_ASYNC
+		static void ProcessRequest(HttpWebRequestAsyncState asyncState)
 		{
 			WebResponse webResponse = null;
 			Stream responseStream = null;
-			HttpWebRequestAsyncState asyncState = null;
 			try
 			{
-				asyncState = (HttpWebRequestAsyncState)asyncResult.AsyncState;
-				webResponse = asyncState.HttpWebRequest.EndGetResponse(asyncResult);
+				webResponse = asyncState.HttpWebRequest.GetResponse();
 				responseStream = webResponse.GetResponseStream();
 				var webRequestCallbackState = new HttpWebRequestCallbackState((HttpWebResponse)webResponse, asyncState.State);
 				asyncState.ResponseCallback(webRequestCallbackState);
-				responseStream.Close();
+				if (responseStream != null)
+					responseStream.Close();
+
 				responseStream = null;
 				webResponse.Close();
 				webResponse = null;
@@ -85,6 +82,52 @@ namespace Embedly.Http
 					webResponse.Close();
 			}
 		}
+#else
+		/// <summary>
+		/// Begins the get response callback.
+		/// </summary>
+		/// <param name="asyncResult">The async result.</param>
+		static void BeginGetResponseCallback(IAsyncResult asyncResult)
+		{
+			WebResponse webResponse = null;
+			Stream responseStream = null;
+			HttpWebRequestAsyncState asyncState = null;
+			try
+			{
+				asyncState = (HttpWebRequestAsyncState)asyncResult.AsyncState;
+				webResponse = asyncState.HttpWebRequest.EndGetResponse(asyncResult);
+				responseStream = webResponse.GetResponseStream();
+				var webRequestCallbackState = new HttpWebRequestCallbackState((HttpWebResponse)webResponse, asyncState.State);
+				asyncState.ResponseCallback(webRequestCallbackState);
+				if (responseStream != null)
+					responseStream.Close();
+
+				responseStream = null;
+				webResponse.Close();
+				webResponse = null;
+			}
+			catch (Exception ex)
+			{
+				if (asyncState != null)
+				{
+					Log.WarnFormat("Exception requesting url: {0}", ex, asyncState.HttpWebRequest.RequestUri);
+					asyncState.ResponseCallback(new HttpWebRequestCallbackState(ex, asyncState.State));
+				}
+				else
+				{
+					Log.Warn("BeginGetResponseCallback", ex);
+					throw;
+				}
+			}
+			finally
+			{
+				if (responseStream != null)
+					responseStream.Close();
+				if (webResponse != null)
+					webResponse.Close();
+			}
+		}
+#endif
 
 		/// <summary>
 		/// If the response from a remote server is in text form
@@ -112,7 +155,7 @@ namespace Embedly.Http
 
 			var request = state as HttpWebRequest;
 
-			Log.Warn(m => m("RequestTimeout requesting url: {0}", request.RequestUri));
+			Log.Warn(m => { if (request != null) m("RequestTimeout requesting url: {0}", request.RequestUri); });
 
 			if (request != null)
 				request.Abort();
@@ -141,15 +184,20 @@ namespace Embedly.Http
 				return;
 			}
 
-			var result = httpWebRequest.BeginGetResponse(BeginGetResponseCallback,
-				new HttpWebRequestAsyncState()
+			var requestState = new HttpWebRequestAsyncState
 				{
 					HttpWebRequest = httpWebRequest,
 					ResponseCallback = responseCallback,
 					State = state
-				});
+				};
+
+#if DISABLE_ASYNC
+			ProcessRequest(requestState);
+#else
+			var result = httpWebRequest.BeginGetResponse(BeginGetResponseCallback, requestState);
 
 			ThreadPool.RegisterWaitForSingleObject(result.AsyncWaitHandle, TimeOutCallback, httpWebRequest, timeout, true);
+#endif
 		}
 	}
 }

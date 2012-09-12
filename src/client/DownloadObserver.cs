@@ -46,28 +46,28 @@ namespace Embedly
 			Log.DebugFormat("Http request for {0} urls: {1}", value.UrlRequests.Count, value.EmbedlyUrl);
 			HttpSocket.GetAsync(value.EmbedlyUrl.AbsoluteUri, _timeout, callbackState =>
 			{
-			    var state = (EmbedlyRequest) callbackState.State;
-			    if (callbackState.Exception == null)
-			    {
-			        var responses = Deserialize(callbackState.ResponseStream);
-                    for (var i = 0; i < state.UrlRequests.Count; i++)
-			        {
+				var state = (EmbedlyRequest) callbackState.State;
+				if (callbackState.Exception == null)
+				{
+					var responses = Deserialize(callbackState.ResponseStream);
+					for (var i = 0; i < state.UrlRequests.Count; i++)
+					{
 						Log.DebugFormat("Response for url: {0} was {1} from {2}", state.UrlRequests[i].Url, responses[i].Type, state.UrlRequests[i].Provider.Name);
-			            _cache.Put(state.UrlRequests[i], responses[i]);
-			            _results.OnNext(new Result(state.UrlRequests[i], responses[i]));
-			        }
-			    }
-			    else
-			    {
-			        foreach (var urlRequest in state.UrlRequests)
-			        {
-			            _results.OnNext(new Result(urlRequest, callbackState.Exception));
-			        }
-			    }
+						_cache.Put(state.UrlRequests[i], responses[i]);
+						_results.OnNext(new Result(state.UrlRequests[i], responses[i]));
+					}
+				}
+				else
+				{
+					foreach (var urlRequest in state.UrlRequests)
+					{
+						_results.OnNext(new Result(urlRequest, callbackState.Exception));
+					}
+				}
 
-			    // signal when we're done so consumers can finish
-			    if (Interlocked.Decrement(ref _count) == 0)
-			        _results.OnCompleted();
+				// signal when we're done so consumers can finish
+				if (Interlocked.Decrement(ref _count) == 0)
+					_results.OnCompleted();
 
 			}, value);
 		}
